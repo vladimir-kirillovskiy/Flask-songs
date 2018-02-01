@@ -119,6 +119,8 @@ def song_search():
     message = request.args.get('message')
     output = []
 
+    #Using Full-Text Search in Mongodb
+
     # Created indexes to enable text search in db
     # db.messages.createIndex({"title":"text","artist":"text"})
 
