@@ -119,25 +119,21 @@ def song_search():
     message = request.args.get('message')
     output = []
 
-    #Using Full-Text Search in Mongodb
-
-    # Created indexes to enable text search in db
-    # db.messages.createIndex({"title":"text","artist":"text"})
-
+    # Search using regex
     if message is not None:
        
-        # stop words (like a, an, the, is, at, which, you, etc...)  will be ignored
-        for q in songs.find(
-                {"$text": {"$search": message, "$caseSensitive":True}}, 
-                {"score": {"$meta": "textScore"}}
-            ):
-             output.append({
+        for q in songs.find({'$or': [
+            {'title': {'$regex': message, '$options': ''}},
+            {'artist': {'$regex': message, '$options': ''}
+        }]}):
+            output.append({
                 'title': q['title'], 
                 'artist': q['artist'],
                 'difficulty': q['difficulty'],
                 'level': q['level'],
                 'released': q['released']
             })
+
         return jsonify({'result': output})
     else:
         return "No message string is received"
