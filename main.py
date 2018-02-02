@@ -3,55 +3,7 @@ from flask_pymongo import PyMongo
 from bson.json_util import dumps
 from bson.objectid import ObjectId
 
-# TODO: move to another file
-# Custom decorator to allow cross domain api calls
-# https://stackoverflow.com/questions/22181384/javascript-no-access-control-allow-origin-header-is-present-on-the-requested
-# http://flask.pocoo.org/snippets/56/
-from datetime import timedelta
-from flask import make_response, request, current_app
-from functools import update_wrapper
-
-def crossdomain(origin=None, methods=None, headers=None,
-                max_age=21600, attach_to_all=True,
-                automatic_options=True):
-    if methods is not None:
-        methods = ', '.join(sorted(x.upper() for x in methods))
-    if headers is not None and not isinstance(headers, list):
-        headers = ', '.join(x.upper() for x in headers)
-    if not isinstance(origin, list):
-        origin = ', '.join(origin)
-    if isinstance(max_age, timedelta):
-        max_age = max_age.total_seconds()
-
-    def get_methods():
-        if methods is not None:
-            return methods
-
-        options_resp = current_app.make_default_options_response()
-        return options_resp.headers['allow']
-
-    def decorator(f):
-        def wrapped_function(*args, **kwargs):
-            if automatic_options and request.method == 'OPTIONS':
-                resp = current_app.make_default_options_response()
-            else:
-                resp = make_response(f(*args, **kwargs))
-            if not attach_to_all and request.method != 'OPTIONS':
-                return resp
-
-            h = resp.headers
-
-            h['Access-Control-Allow-Origin'] = origin
-            h['Access-Control-Allow-Methods'] = get_methods()
-            h['Access-Control-Max-Age'] = str(max_age)
-            if headers is not None:
-                h['Access-Control-Allow-Headers'] = headers
-            return resp
-
-        f.provide_automatic_options = False
-        return update_wrapper(wrapped_function, f)
-    return decorator
-
+from custom_decorators import crossdomain
 
 app = Flask(__name__)
 
@@ -108,8 +60,8 @@ def avg_difficulty():
             {'$unwind': '$level'},
             {'$group': {'_id': "null", "avg": {'$avg': '$level'}}}
         ]
-        result = songs.aggregate(pipeline = pipe)
-        return jsonify({'result': list(result)[0]['avg']})
+        result = list(songs.aggregate(pipeline = pipe))
+        return jsonify({'result': result[0]['avg']})
 
 # Search for the songs over artist and title
 @app.route('/songs/search', methods=['GET'])
@@ -136,12 +88,12 @@ def song_search():
 
         return jsonify({'result': output})
     else:
-        return "No message string is received"
+        return jsonify({'result': 'No message string is received'})
 
 # Add rating to the song, 1-5
 @app.route('/songs/rating', methods=['POST'])
 def songs_rating():
-    songs = mongo.db.songs
+    ratings = mongo.db.ratings
 
     song_id = request.json['song_id']
     rating = request.json['rating']
@@ -149,41 +101,46 @@ def songs_rating():
     output = []
 
     # add rating value
-    # for the next task we need average, min and max for rating field
-    # that means to one to many relations
-    # songs.update({'_id': ObjectId(song_id)}, {'$set': {'rating': rating}})
+    ratings.insert({
+        'song_id': ObjectId(song_id),
+        'rating': rating
+    })
 
-    # for q in songs.find({'_id': ObjectId(song_id)}):
-    #     output.append({
-    #         'title': q['title'], 
-    #         'artist': q['artist'],
-    #         'difficulty': q['difficulty'],
-    #         'level': q['level'],
-    #         'released': q['released'],
-    #         'rating': q['rating']
-    #     })
-
-    # return jsonify({'result': output})
-    return "Done it wrong!"
+    return jsonify({'result': 'Rating Added'})
 
 # Returns the average, the lowest and the highest rating of the given song id
 @app.route('/songs/avg/rating/<song_id>', methods=['GET'])
 def get_song_rating(song_id):
-    # songs = mongo.db.songs
+    ratings = mongo.db.ratings
 
-    # pipe = [
-    #         {'$unwind': '$rating'},
-    #         {'$group': {
-    #             '_id': "null", 
-    #             "avg": {'$avg': '$rating'},
-    #             "min": {'$min': '$rating'},
-    #             "max": {'$max': '$rating'},
-    #         }}
-    #     ]
-    # result = songs.aggregate(pipeline = pipe)
-    # return jsonify({'result': list(result)[0]['avg']})
+    output = {
+        'avg': 0,
+        'min': 0,
+        'max': 0
+    }
 
-    return "in progress"
+    pipe = [
+            {'$match': {'song_id': ObjectId(song_id)}},
+            {'$unwind': '$rating'},
+            {'$group': {
+                '_id': "null", 
+                "avg": {'$avg': '$rating'},
+                "min": {'$min': '$rating'},
+                "max": {'$max': '$rating'},
+            }}
+        ]
+
+    result = list(ratings.aggregate(pipeline = pipe))
+    
+    if len(result) > 0:
+        output = {
+            'avg': result[0]['avg'],
+            'min': result[0]['min'],
+            'max': result[0]['max']
+        }
+        return jsonify({'result': output})
+
+    return jsonify({'result': output})
 
 if __name__ == "__main__":
     app.run(debug=True)
