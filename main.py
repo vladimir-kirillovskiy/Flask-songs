@@ -23,8 +23,12 @@ def index():
 def songs():
     songs = mongo.db.songs
 
-    limit = int(request.args.get('limit'))
-    offset = int(request.args.get('offset'))
+    if request.args.get('limit') is not None and request.args.get('offset') is not None:
+        limit = int(request.args.get('limit'))
+        offset = int(request.args.get('offset'))
+    else:
+        limit = 4
+        offset = 0
 
     output = []
     count = songs.count()
@@ -109,7 +113,6 @@ def songs_rating():
     output = []
 
     if rating > 0 and rating < 6:
-
         # add rating value
         ratings.insert({
             'song_id': ObjectId(song_id),
@@ -118,7 +121,7 @@ def songs_rating():
 
         return jsonify({'result': 'Rating Added'})
     else:
-         return jsonify({'result': 'Rating should be between 1 and 5'})
+        return jsonify({'result': 'Rating should be between 1 and 5'})
 
 # Returns the average, the lowest and the highest rating of the given song id
 @app.route('/songs/avg/rating/<song_id>', methods=['GET'])
