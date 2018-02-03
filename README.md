@@ -1,6 +1,6 @@
 # Rest Api with Python, Flask and Mongodb
 
-Simple Api with single page frontend located here: https://github.com/vladimir-kirillovskiy/Flask-songs-frontend
+Simple Api with single page frontend. Frontend located here: https://github.com/vladimir-kirillovskiy/Flask-songs-frontend
 
 # Installation Instructions:
 
