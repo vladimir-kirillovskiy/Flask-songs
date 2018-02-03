@@ -24,10 +24,12 @@ class FlaskTestCase(unittest.TestCase):
         response = tester.get('/songs/search', content_type='application/json')
         self.assertEqual(response.status_code, 200)
 
-    # def test_set_song_rating_status(self):
-    #     tester = app.test_client(self)
-    #     response = tester.get('/songs/rating', content_type='application/json')
-    #     self.assertEqual(response.status_code, 200)
+    def test_set_song_rating_status(self):
+        tester = app.test_client(self)
+        response = tester.post('/songs/rating',
+            data='{"song_id": "5a6c2fbfe8f4a17157ebbd21", "rating": 3}', 
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200)
 
     def test_get_song_rating_status(self):
         tester = app.test_client(self)

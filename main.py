@@ -13,20 +13,25 @@ app.config['MONGO_URI'] = 'mongodb://localhost:27017/rest_api'
 mongo = PyMongo(app)
 
 @app.route('/')
+@crossdomain(origin='*')
 def index():
     return "Welcome to the song api app "
 
 # List all the songs
 @app.route('/songs', methods=['GET'])
+@crossdomain(origin='*')
 def songs():
-    # TODO: add pagination
-    # options: page, number of songs
     songs = mongo.db.songs
-    output = []
 
-    for q in songs.find():
+    limit = int(request.args.get('limit'))
+    offset = int(request.args.get('offset'))
+
+    output = []
+    count = songs.count()
+
+    for q in songs.find().skip(offset).limit(limit):
         output.append({
-            'id': str(q['_id']),
+            'song_id': str(q['_id']),
             'title': q['title'], 
             'artist': q['artist'],
             'difficulty': q['difficulty'],
@@ -34,11 +39,12 @@ def songs():
             'released': q['released']
         })
 
-    return jsonify({'result': output})
+    return jsonify({'result': output, 'count': count, 'offset': offset})
 
 # Show average difficulty for all songs
 # or if parameter level is given list all the songs given difficulty
 @app.route('/songs/avg/difficulty', methods=['GET'])
+@crossdomain(origin='*')
 def avg_difficulty():
     songs = mongo.db.songs
     level = request.args.get('level', type = int)
@@ -48,6 +54,7 @@ def avg_difficulty():
     if level is not None and level > 0:
         for q in songs.find({'level': level}):
             output.append({
+                'song_id': str(q['_id']),
                 'title': q['title'], 
                 'artist': q['artist'],
                 'difficulty': q['difficulty'],
@@ -73,12 +80,13 @@ def song_search():
 
     # Search using regex
     if message is not None:
-       
+
         for q in songs.find({'$or': [
             {'title': {'$regex': message, '$options': ''}},
             {'artist': {'$regex': message, '$options': ''}
         }]}):
             output.append({
+                'song_id': str(q['_id']),
                 'title': q['title'], 
                 'artist': q['artist'],
                 'difficulty': q['difficulty'],
@@ -92,24 +100,29 @@ def song_search():
 
 # Add rating to the song, 1-5
 @app.route('/songs/rating', methods=['POST'])
+@crossdomain(origin='*')
 def songs_rating():
     ratings = mongo.db.ratings
-
-    song_id = request.json['song_id']
-    rating = request.json['rating']
+    song_id = request.form['song_id']
+    rating = int(request.form['rating'])
 
     output = []
 
-    # add rating value
-    ratings.insert({
-        'song_id': ObjectId(song_id),
-        'rating': rating
-    })
+    if rating > 0 and rating < 6:
 
-    return jsonify({'result': 'Rating Added'})
+        # add rating value
+        ratings.insert({
+            'song_id': ObjectId(song_id),
+            'rating': rating
+        })
+
+        return jsonify({'result': 'Rating Added'})
+    else:
+         return jsonify({'result': 'Rating should be between 1 and 5'})
 
 # Returns the average, the lowest and the highest rating of the given song id
 @app.route('/songs/avg/rating/<song_id>', methods=['GET'])
+@crossdomain(origin='*')
 def get_song_rating(song_id):
     ratings = mongo.db.ratings
 
@@ -131,7 +144,7 @@ def get_song_rating(song_id):
         ]
 
     result = list(ratings.aggregate(pipeline = pipe))
-    
+
     if len(result) > 0:
         output = {
             'avg': result[0]['avg'],
